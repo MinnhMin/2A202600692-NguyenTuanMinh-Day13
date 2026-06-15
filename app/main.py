@@ -44,8 +44,20 @@ async def metrics() -> dict:
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: Request, body: ChatRequest) -> ChatResponse:
-    # TODO: Enrich logs with request context (user_id_hash, session_id, feature, model, env)
-    # bind_contextvars(...)
+    # 1. Băm user_id để bảo mật thông tin (PII) theo yêu cầu bài lab
+    hashed_user = hash_user_id(body.user_id)
+
+    # 2. Lấy thông tin môi trường (env) từ biến môi trường hệ thống, mặc định là "dev"
+    current_env = os.getenv("APP_ENV", "dev")
+
+    # 3. Làm giàu log (Enrich logs) bằng cách bind các thông tin ngữ cảnh vào structlog contextvars
+    bind_contextvars(
+        user_id_hash=hashed_user,
+        session_id=body.session_id,
+        feature=body.feature,
+        model=body.model if hasattr(body, 'model') else "default-model", # Đề phòng schema có trường model
+        env=current_env
+    )
     
     log.info(
         "request_received",
